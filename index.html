@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Budjetti">
+  <meta name="theme-color" content="#1a73e8">
+  <title>Budjetti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- KIRJAUTUMINEN (näkyy ensin) -->
+  <div id="auth-screen" class="screen active">
+    <div id="login-view">
+      <h1 class="auth-logo">💰 Budjetti</h1>
+      <div class="auth-card">
+        <h2>Kirjaudu sisään</h2>
+        <input type="email" id="login-email" placeholder="Sähköposti">
+        <input type="password" id="login-password" placeholder="Salasana">
+        <div id="login-error" class="error-msg"></div>
+        <button class="btn-primary" onclick="handleLogin()">Kirjaudu</button>
+        <button class="btn-link" onclick="showRegister()">Ei tiliä? Rekisteröidy</button>
+      </div>
+    </div>
+    <div id="register-view" class="hidden">
+      <h1 class="auth-logo">💰 Budjetti</h1>
+      <div class="auth-card">
+        <h2>Luo tili</h2>
+        <input type="text" id="reg-name" placeholder="Nimesi">
+        <input type="email" id="reg-email" placeholder="Sähköposti">
+        <input type="password" id="reg-password" placeholder="Salasana (min. 6 merkkiä)">
+        <div id="reg-error" class="error-msg"></div>
+        <button class="btn-primary" onclick="handleRegister()">Luo tili</button>
+        <button class="btn-link" onclick="showLogin()">Onko tili jo? Kirjaudu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOVELLUS (näkyy kirjautumisen jälkeen) -->
+  <div id="app-screen" class="screen hidden">
+
+    <!-- NÄKYMÄT -->
+    <div id="view-etusivu" class="view active"></div>
+    <div id="view-tapahtumat" class="view hidden"></div>
+    <div id="view-budjetti" class="view hidden"></div>
+    <div id="view-tilastot" class="view hidden"></div>
+    <div id="view-profiili" class="view hidden"></div>
+
+    <!-- LISÄÄ TAPAHTUMA -NAPPI -->
+    <button class="fab" onclick="openAddModal()">+</button>
+
+    <!-- LISÄÄ TAPAHTUMA -MODAL -->
+    <div id="add-modal" class="modal-overlay hidden">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <span class="modal-title">Lisää tapahtuma</span>
+          <button class="modal-close" onclick="closeAddModal()">✕</button>
+        </div>
+        <div id="add-modal-content"></div>
+      </div>
+    </div>
+
+    <!-- POHJANAVIGAATIO -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" onclick="switchView('etusivu', this)">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Etusivu</span>
+      </button>
+      <button class="nav-item" onclick="switchView('tapahtumat', this)">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Tapahtumat</span>
+      </button>
+      <button class="nav-item" onclick="switchView('budjetti', this)">
+        <span class="nav-icon">🎯</span>
+        <span class="nav-label">Budjetti</span>
+      </button>
+      <button class="nav-item" onclick="switchView('tilastot', this)">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Tilastot</span>
+      </button>
+      <button class="nav-item" onclick="switchView('profiili', this)">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label">Profiili</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- SKRIPTIT -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="firebase.js"></script>
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

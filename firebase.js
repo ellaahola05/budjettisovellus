@@ -20,6 +20,14 @@ auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
     currentUserData = await getUserData(user.uid);
+    if (!currentUserData) {
+      await db.collection('users').doc(user.uid).set({
+        nimi: user.email.split('@')[0],
+        sahkopostti: user.email,
+        kotitalousId: null
+      }, { merge: true });
+      currentUserData = await getUserData(user.uid);
+    }
     showApp();
   } else {
     currentUser = null;

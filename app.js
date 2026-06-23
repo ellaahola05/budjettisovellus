@@ -96,6 +96,7 @@ function switchView(viewName, btn) {
     item.classList.remove('active');
   });
   btn.classList.add('active');
+  window.scrollTo(0, 0);
 
   switch (viewName) {
     case 'etusivu':     renderEtusivu(); break;

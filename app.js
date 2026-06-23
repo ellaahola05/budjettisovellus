@@ -465,9 +465,14 @@ async function renderBudjettiContent(kuukausi) {
   if (!el) return;
 
   try {
+    if (!currentUser || !currentUserData) {
+      el.innerHTML = '<p class="error-msg">Kirjaudu sisään ensin.</p>';
+      return;
+    }
+
     const uid = currentUser.uid;
     const isYhteiset = budjetti_tab === 'yhteiset';
-    const kotitalousId = currentUserData.kotitalousId;
+    const kotitalousId = currentUserData.kotitalousId || null;
 
     if (isYhteiset && !kotitalousId) {
       el.innerHTML = `
@@ -535,7 +540,7 @@ async function renderBudjettiContent(kuukausi) {
       </div>
     `;
   } catch (e) {
-    el.innerHTML = '<p class="error-msg">Virhe ladattaessa budjettia.</p>';
+    el.innerHTML = `<p class="error-msg">Virhe: ${e.message || e.code || 'tuntematon virhe'}</p>`;
     console.error(e);
   }
 }

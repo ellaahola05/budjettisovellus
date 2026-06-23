@@ -1027,3 +1027,17 @@ input, button, select, textarea {
 .btn-danger {
   background: var(--red) !important;
 }
+
+.btn-danger-outline {
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  background: transparent;
+  border: 1.5px solid var(--red);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}

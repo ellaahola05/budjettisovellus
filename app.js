@@ -110,7 +110,18 @@ function switchView(viewName, btn) {
 // ---- MODAL ----
 
 function openAddModal() {
+  _muokkausId = null;
+  document.getElementById('add-modal-title').textContent = 'Lisää tapahtuma';
   renderModalContent();
+  document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function openEditModal(txId) {
+  const t = _tapahtumaCache[txId];
+  if (!t) return;
+  _muokkausId = txId;
+  document.getElementById('add-modal-title').textContent = 'Muokkaa tapahtumaa';
+  renderModalContent(t);
   document.getElementById('add-modal').classList.remove('hidden');
 }
 
@@ -118,16 +129,22 @@ function closeAddModal() {
   document.getElementById('add-modal').classList.add('hidden');
 }
 
-function renderModalContent() {
+function renderModalContent(esitayta) {
   const tanaan = new Date().toISOString().split('T')[0];
+  const tyyppi = esitayta?.tyyppi || 'meno';
+  const pvm = esitayta ? esitayta.paivamaara.toDate().toISOString().split('T')[0] : tanaan;
+  valittuTyyppi = tyyppi;
+  valittuKategoria = esitayta?.kategoria || null;
+
   document.getElementById('add-modal-content').innerHTML = `
     <div class="type-toggle">
-      <button id="toggle-meno" class="type-btn active" onclick="vaihdaTyyppi('meno')">Meno</button>
-      <button id="toggle-tulo" class="type-btn" onclick="vaihdaTyyppi('tulo')">Tulo</button>
+      <button id="toggle-meno" class="type-btn ${tyyppi === 'meno' ? 'active' : ''}" onclick="vaihdaTyyppi('meno')">Meno</button>
+      <button id="toggle-tulo" class="type-btn ${tyyppi === 'tulo' ? 'active' : ''}" onclick="vaihdaTyyppi('tulo')">Tulo</button>
     </div>
     <div class="form-group">
       <label>Summa (€)</label>
-      <input type="number" id="modal-summa" inputmode="decimal" min="0" step="0.01" placeholder="0,00">
+      <input type="number" id="modal-summa" inputmode="decimal" min="0" step="0.01" placeholder="0,00"
+        value="${esitayta ? esitayta.summa : ''}">
     </div>
     <div class="form-group">
       <label>Kategoria</label>
@@ -135,27 +152,40 @@ function renderModalContent() {
     </div>
     <div class="form-group">
       <label>Kommentti <span class="label-optional">(valinnainen)</span></label>
-      <input type="text" id="modal-kommentti" placeholder="esim. Lidl, pesuaineet">
+      <input type="text" id="modal-kommentti" placeholder="esim. Lidl, pesuaineet"
+        value="${esitayta ? esitayta.kommentti || '' : ''}">
     </div>
     <div class="form-group">
       <label>Päivämäärä</label>
-      <input type="date" id="modal-pvm" value="${tanaan}">
+      <input type="date" id="modal-pvm" value="${pvm}">
     </div>
     <div class="form-group yhteiset-rivi">
       <label>Yhteiseen talouteen</label>
       <label class="toggle-switch">
-        <input type="checkbox" id="modal-yhteiset">
+        <input type="checkbox" id="modal-yhteiset" ${esitayta?.yhteiset ? 'checked' : ''}>
         <span class="toggle-knob"></span>
       </label>
     </div>
-    <button class="btn-primary" onclick="handleAddTransaction()">Tallenna</button>
+    <button class="btn-primary" onclick="handleAddTransaction()">
+      ${_muokkausId ? 'Tallenna muutokset' : 'Tallenna'}
+    </button>
+    ${_muokkausId ? `<button class="btn-danger-outline" onclick="vahvistaPoisto('${_muokkausId}')">🗑️ Poista tapahtuma</button>` : ''}
     <p id="modal-error" class="error-msg"></p>
   `;
-  renderKategoriagrid('meno');
+  renderKategoriagrid(tyyppi);
+  if (valittuKategoria) preselektKategoria(valittuKategoria);
+}
+
+function preselektKategoria(nimi) {
+  document.querySelectorAll('.kategoria-nappi').forEach(b => {
+    if (b.querySelector('.kat-nimi').textContent === nimi) b.classList.add('active');
+  });
 }
 
 let valittuKategoria = null;
 let valittuTyyppi = 'meno';
+let _muokkausId = null;
+let _tapahtumaCache = {};
 
 function vaihdaTyyppi(tyyppi) {
   valittuTyyppi = tyyppi;
@@ -203,17 +233,20 @@ async function handleAddTransaction() {
     return;
   }
 
+  const data = { tyyppi: valittuTyyppi, summa, kategoria: valittuKategoria, kommentti, paivamaara: pvm, yhteiset };
+
   try {
-    await addTransaction({
-      tyyppi: valittuTyyppi,
-      summa,
-      kategoria: valittuKategoria,
-      kommentti,
-      paivamaara: pvm,
-      yhteiset
-    });
+    if (_muokkausId) {
+      await updateTransaction(_muokkausId, data);
+    } else {
+      await addTransaction(data);
+    }
     closeAddModal();
-    switchView('etusivu', document.querySelector('.nav-item.active'));
+    if (document.getElementById('view-tapahtumat').classList.contains('active')) {
+      renderTapahtumatLista();
+    } else {
+      renderEtusivu();
+    }
   } catch (e) {
     errorEl.textContent = 'Tallennus epäonnistui. Yritä uudelleen.';
     console.error(e);
@@ -374,13 +407,14 @@ function renderViimeisimmat(tapahtumat) {
     `;
   }
 
+  tapahtumat.forEach(t => { _tapahtumaCache[t.id] = t; });
   const rivit = tapahtumat.map(t => {
     const kat = getKategoria(t.kategoria, t.tyyppi);
     const yhtTag = t.yhteiset ? '<span class="yht-tag">YHTEISET</span>' : '';
     const tuloClass = t.tyyppi === 'tulo' ? 'positiivinen' : 'negatiivinen';
     const etumerkki = t.tyyppi === 'tulo' ? '+' : '-';
     return `
-      <div class="tapahtuma-rivi" onclick="vahvistaPoistoEtusivu('${t.id}')">
+      <div class="tapahtuma-rivi" onclick="openEditModal('${t.id}')">
         <span class="t-ikoni">${kat.ikoni}</span>
         <div class="t-tiedot">
           <span class="t-kat">${t.kategoria} ${yhtTag}</span>
@@ -400,10 +434,15 @@ function renderViimeisimmat(tapahtumat) {
   `;
 }
 
-async function vahvistaPoistoEtusivu(txId) {
-  if (confirm('Poista tapahtuma?')) {
+async function vahvistaPoisto(txId) {
+  if (confirm('Poistetaanko tapahtuma?')) {
     await deleteTransaction(txId);
-    renderEtusivu();
+    closeAddModal();
+    if (document.getElementById('view-tapahtumat').classList.contains('active')) {
+      renderTapahtumatLista();
+    } else {
+      renderEtusivu();
+    }
   }
 }
 
@@ -473,6 +512,7 @@ async function renderTapahtumatLista() {
       return;
     }
 
+    tapahtumat.forEach(t => { _tapahtumaCache[t.id] = t; });
     lista.innerHTML = `
       <div class="tapahtumat-lista">
         ${tapahtumat.map(t => {
@@ -481,7 +521,7 @@ async function renderTapahtumatLista() {
           const tuloClass = t.tyyppi === 'tulo' ? 'positiivinen' : 'negatiivinen';
           const etumerkki = t.tyyppi === 'tulo' ? '+' : '-';
           return `
-            <div class="tapahtuma-rivi" onclick="vahvistaPoistoTap('${t.id}')">
+            <div class="tapahtuma-rivi" onclick="openEditModal('${t.id}')">
               <span class="t-ikoni">${kat.ikoni}</span>
               <div class="t-tiedot">
                 <span class="t-kat">${t.kategoria} ${yhtTag}</span>
@@ -511,12 +551,6 @@ function vaihdaTapKuukausi(suunta) {
   renderTapahtumat();
 }
 
-async function vahvistaPoistoTap(txId) {
-  if (confirm('Poista tapahtuma?')) {
-    await deleteTransaction(txId);
-    renderTapahtumatLista();
-  }
-}
 let budjetti_tab = 'oma';
 
 async function renderBudjetti() {

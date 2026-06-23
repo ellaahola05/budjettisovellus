@@ -153,6 +153,18 @@ async function deleteTransaction(txId) {
   return db.collection('transactions').doc(txId).delete();
 }
 
+async function updateTransaction(txId, data) {
+  return db.collection('transactions').doc(txId).update({
+    tyyppi: data.tyyppi,
+    summa: Number(data.summa),
+    kategoria: data.kategoria,
+    kommentti: data.kommentti || '',
+    paivamaara: firebase.firestore.Timestamp.fromDate(new Date(data.paivamaara)),
+    kuukausi: data.paivamaara.substring(0, 7),
+    yhteiset: data.yhteiset && !!currentUserData.kotitalousId
+  });
+}
+
 function nykyinenKuukausi() {
   return new Date().toISOString().substring(0, 7);
 }

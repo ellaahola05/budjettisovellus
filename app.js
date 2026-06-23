@@ -289,11 +289,12 @@ async function renderEtusivu() {
 }
 
 function renderSaastoKortti(saldo, tapahtumat) {
+  tapahtumat.forEach(t => { _saastoCacheMap[t.id] = t; });
   const histRivit = tapahtumat.slice(0, 3).map(t => {
     const merkki = t.tyyppi === 'lisays' ? '+' : '−';
     const vari = t.tyyppi === 'lisays' ? 'positiivinen' : 'negatiivinen';
     return `
-      <div class="saasto-hist-rivi">
+      <div class="saasto-hist-rivi" onclick="openEditSaastoModal('${t.id}')" style="cursor:pointer">
         <span class="saasto-hist-kuvaus">${t.kuvaus || (t.tyyppi === 'lisays' ? 'Lisäys' : 'Nosto')}</span>
         <span class="saasto-hist-summa ${vari}">${merkki}${formatEuro(t.summa)}</span>
       </div>
@@ -316,29 +317,56 @@ function renderSaastoKortti(saldo, tapahtumat) {
 }
 
 let saasto_tyyppi = 'lisays';
+let _saastoMuokkausId = null;
+let _saastoCacheMap = {};
 
-function openSaastoModal(tyyppi) {
-  saasto_tyyppi = tyyppi;
-  document.getElementById('saasto-modal-title').textContent =
-    tyyppi === 'lisays' ? '+ Lisää säästöihin' : '− Nosta säästöistä';
+function _renderSaastoModalSisalto(esitayta) {
+  const tyyppi = esitayta?.tyyppi || saasto_tyyppi;
   const saldo = currentUserData?.saastoSaldo || 0;
   document.getElementById('saasto-modal-content').innerHTML = `
     <p class="saasto-nykyinen">Saldo nyt: <strong>${formatEuro(saldo)}</strong></p>
+    <div class="type-toggle" style="margin-bottom:16px">
+      <button id="saasto-toggle-lisays" class="type-btn ${tyyppi === 'lisays' ? 'active' : ''}"
+        onclick="saasto_tyyppi='lisays';document.getElementById('saasto-toggle-lisays').classList.add('active');document.getElementById('saasto-toggle-nosto').classList.remove('active')">Lisäys</button>
+      <button id="saasto-toggle-nosto" class="type-btn ${tyyppi === 'nosto' ? 'active' : ''}"
+        onclick="saasto_tyyppi='nosto';document.getElementById('saasto-toggle-nosto').classList.add('active');document.getElementById('saasto-toggle-lisays').classList.remove('active')">Nosto</button>
+    </div>
     <div class="form-group">
       <label>Summa (€)</label>
-      <input type="number" id="saasto-summa" inputmode="decimal" min="0" step="0.01" placeholder="0,00">
+      <input type="number" id="saasto-summa" inputmode="decimal" min="0" step="0.01" placeholder="0,00"
+        value="${esitayta ? esitayta.summa : ''}">
     </div>
     <div class="form-group">
       <label>Kuvaus <span class="label-optional">(valinnainen)</span></label>
-      <input type="text" id="saasto-kuvaus" placeholder="${tyyppi === 'lisays' ? 'esim. Kuukausisäästö' : 'esim. Lomamatka'}">
+      <input type="text" id="saasto-kuvaus" placeholder="esim. Kuukausisäästö"
+        value="${esitayta ? esitayta.kuvaus || '' : ''}">
     </div>
-    <button class="btn-primary${tyyppi === 'nosto' ? ' btn-danger' : ''}" onclick="handleSaastoTapahtuma()">
-      ${tyyppi === 'lisays' ? 'Tallenna lisäys' : 'Tallenna nosto'}
+    <button class="btn-primary" onclick="handleSaastoTapahtuma()">
+      ${_saastoMuokkausId ? 'Tallenna muutokset' : 'Tallenna'}
     </button>
+    ${_saastoMuokkausId ? `<button class="btn-danger-outline" onclick="vahvistaSaastoPoisto('${_saastoMuokkausId}')">🗑️ Poista tapahtuma</button>` : ''}
     <p id="saasto-error" class="error-msg"></p>
   `;
-  document.getElementById('saasto-modal').classList.remove('hidden');
   setTimeout(() => document.getElementById('saasto-summa')?.focus(), 100);
+}
+
+function openSaastoModal(tyyppi) {
+  _saastoMuokkausId = null;
+  saasto_tyyppi = tyyppi;
+  document.getElementById('saasto-modal-title').textContent =
+    tyyppi === 'lisays' ? '+ Lisää säästöihin' : '− Nosta säästöistä';
+  _renderSaastoModalSisalto(null);
+  document.getElementById('saasto-modal').classList.remove('hidden');
+}
+
+function openEditSaastoModal(txId) {
+  const t = _saastoCacheMap[txId];
+  if (!t) return;
+  _saastoMuokkausId = txId;
+  saasto_tyyppi = t.tyyppi;
+  document.getElementById('saasto-modal-title').textContent = 'Muokkaa tapahtumaa';
+  _renderSaastoModalSisalto(t);
+  document.getElementById('saasto-modal').classList.remove('hidden');
 }
 
 function closeSaastoModal() {
@@ -357,11 +385,23 @@ async function handleSaastoTapahtuma() {
   }
 
   try {
-    await saastoTapahtuma(summa, kuvaus, saasto_tyyppi);
+    if (_saastoMuokkausId) {
+      await muokkaaSaastoTapahtuma(_saastoMuokkausId, summa, kuvaus, saasto_tyyppi, _saastoCacheMap[_saastoMuokkausId]);
+    } else {
+      await saastoTapahtuma(summa, kuvaus, saasto_tyyppi);
+    }
     closeSaastoModal();
     renderEtusivu();
   } catch (e) {
     errorEl.textContent = e.message || 'Tallennus epäonnistui.';
+  }
+}
+
+async function vahvistaSaastoPoisto(txId) {
+  if (confirm('Poistetaanko tapahtuma?')) {
+    await poistaSaastoTapahtuma(txId, _saastoCacheMap[txId]);
+    closeSaastoModal();
+    renderEtusivu();
   }
 }
 

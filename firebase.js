@@ -267,3 +267,27 @@ async function getSaastoTapahtumat() {
     .sort((a, b) => b.paivamaara.seconds - a.paivamaara.seconds)
     .slice(0, 10);
 }
+
+async function muokkaaSaastoTapahtuma(txId, uusiSumma, uusiKuvaus, uusiTyyppi, vanhaT) {
+  const vanhaVaikutus = vanhaT.tyyppi === 'lisays' ? -vanhaT.summa : vanhaT.summa;
+  const uusiVaikutus = uusiTyyppi === 'lisays' ? uusiSumma : -uusiSumma;
+  const uusiSaldo = (currentUserData.saastoSaldo || 0) + vanhaVaikutus + uusiVaikutus;
+  if (uusiSaldo < 0) throw new Error('Saldo ei voi mennä miinukselle.');
+
+  await db.collection('users').doc(currentUser.uid).update({ saastoSaldo: uusiSaldo });
+  currentUserData.saastoSaldo = uusiSaldo;
+  await db.collection('users').doc(currentUser.uid)
+    .collection('saastotapahtumat').doc(txId).update({
+      summa: uusiSumma, kuvaus: uusiKuvaus, tyyppi: uusiTyyppi, saldoJalkeen: uusiSaldo
+    });
+  return uusiSaldo;
+}
+
+async function poistaSaastoTapahtuma(txId, vanhaT) {
+  const muutos = vanhaT.tyyppi === 'lisays' ? -vanhaT.summa : vanhaT.summa;
+  const uusiSaldo = (currentUserData.saastoSaldo || 0) + muutos;
+  await db.collection('users').doc(currentUser.uid).update({ saastoSaldo: uusiSaldo });
+  currentUserData.saastoSaldo = uusiSaldo;
+  await db.collection('users').doc(currentUser.uid)
+    .collection('saastotapahtumat').doc(txId).delete();
+}

@@ -932,3 +932,98 @@ html, body {
 input, button, select, textarea {
   touch-action: manipulation;
 }
+
+/* ---- SÄÄSTÖTILI ---- */
+
+.saasto-kortti {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin: 0 16px 16px;
+}
+
+.saasto-ylaosa {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.saasto-otsikko {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.saasto-saldo {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
+.saasto-napit {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.saasto-btn {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.saasto-lisays {
+  background: var(--green-light);
+  color: var(--green-dark);
+}
+
+.saasto-nosto {
+  background: var(--red-light);
+  color: var(--red-dark);
+}
+
+.saasto-historia {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saasto-hist-rivi {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.saasto-hist-kuvaus {
+  color: var(--text-muted);
+}
+
+.saasto-hist-summa {
+  font-weight: 600;
+}
+
+.saasto-nykyinen {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.saasto-nykyinen strong {
+  color: var(--green-dark);
+}
+
+.btn-danger {
+  background: var(--red) !important;
+}

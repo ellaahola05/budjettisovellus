@@ -235,18 +235,100 @@ async function renderEtusivu() {
   `;
 
   try {
-    const kaikki = await getKaikki(kuukausi);
+    const [kaikki, saastoHist] = await Promise.all([
+      getKaikki(kuukausi),
+      getSaastoTapahtumat()
+    ]);
     const yhteenveto = laskeYhteenveto(kaikki);
     const viimeisimmat = kaikki.slice(0, 5);
+    const saastoSaldo = currentUserData?.saastoSaldo || 0;
 
     document.getElementById('etusivu-content').innerHTML = `
       ${renderYhteenvetokortti(yhteenveto)}
+      ${renderSaastoKortti(saastoSaldo, saastoHist)}
       ${renderViimeisimmat(viimeisimmat)}
     `;
   } catch (e) {
     document.getElementById('etusivu-content').innerHTML =
       '<p class="error-msg">Virhe ladattaessa tietoja.</p>';
     console.error(e);
+  }
+}
+
+function renderSaastoKortti(saldo, tapahtumat) {
+  const histRivit = tapahtumat.slice(0, 3).map(t => {
+    const merkki = t.tyyppi === 'lisays' ? '+' : '−';
+    const vari = t.tyyppi === 'lisays' ? 'positiivinen' : 'negatiivinen';
+    return `
+      <div class="saasto-hist-rivi">
+        <span class="saasto-hist-kuvaus">${t.kuvaus || (t.tyyppi === 'lisays' ? 'Lisäys' : 'Nosto')}</span>
+        <span class="saasto-hist-summa ${vari}">${merkki}${formatEuro(t.summa)}</span>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="saasto-kortti">
+      <div class="saasto-ylaosa">
+        <span class="saasto-otsikko">🐷 Säästötili</span>
+        <span class="saasto-saldo">${formatEuro(saldo)}</span>
+      </div>
+      <div class="saasto-napit">
+        <button class="saasto-btn saasto-lisays" onclick="openSaastoModal('lisays')">+ Lisää</button>
+        <button class="saasto-btn saasto-nosto" onclick="openSaastoModal('nosto')">− Nosta</button>
+      </div>
+      ${tapahtumat.length > 0 ? `<div class="saasto-historia">${histRivit}</div>` : ''}
+    </div>
+  `;
+}
+
+let saasto_tyyppi = 'lisays';
+
+function openSaastoModal(tyyppi) {
+  saasto_tyyppi = tyyppi;
+  document.getElementById('saasto-modal-title').textContent =
+    tyyppi === 'lisays' ? '+ Lisää säästöihin' : '− Nosta säästöistä';
+  const saldo = currentUserData?.saastoSaldo || 0;
+  document.getElementById('saasto-modal-content').innerHTML = `
+    <p class="saasto-nykyinen">Saldo nyt: <strong>${formatEuro(saldo)}</strong></p>
+    <div class="form-group">
+      <label>Summa (€)</label>
+      <input type="number" id="saasto-summa" inputmode="decimal" min="0" step="0.01" placeholder="0,00">
+    </div>
+    <div class="form-group">
+      <label>Kuvaus <span class="label-optional">(valinnainen)</span></label>
+      <input type="text" id="saasto-kuvaus" placeholder="${tyyppi === 'lisays' ? 'esim. Kuukausisäästö' : 'esim. Lomamatka'}">
+    </div>
+    <button class="btn-primary${tyyppi === 'nosto' ? ' btn-danger' : ''}" onclick="handleSaastoTapahtuma()">
+      ${tyyppi === 'lisays' ? 'Tallenna lisäys' : 'Tallenna nosto'}
+    </button>
+    <p id="saasto-error" class="error-msg"></p>
+  `;
+  document.getElementById('saasto-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('saasto-summa')?.focus(), 100);
+}
+
+function closeSaastoModal() {
+  document.getElementById('saasto-modal').classList.add('hidden');
+}
+
+async function handleSaastoTapahtuma() {
+  const summa = parseFloat(document.getElementById('saasto-summa').value.replace(',', '.'));
+  const kuvaus = document.getElementById('saasto-kuvaus').value.trim();
+  const errorEl = document.getElementById('saasto-error');
+  errorEl.textContent = '';
+
+  if (!summa || summa <= 0) {
+    errorEl.textContent = 'Syötä summa.';
+    return;
+  }
+
+  try {
+    await saastoTapahtuma(summa, kuvaus, saasto_tyyppi);
+    closeSaastoModal();
+    renderEtusivu();
+  } catch (e) {
+    errorEl.textContent = e.message || 'Tallennus epäonnistui.';
   }
 }
 

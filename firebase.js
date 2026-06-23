@@ -224,3 +224,34 @@ async function poistuKotitaloudesta() {
   await updateUserData(currentUser.uid, { kotitalousId: null });
   currentUserData.kotitalousId = null;
 }
+
+// ---- SÄÄSTÖTILI ----
+
+async function saastoTapahtuma(summa, kuvaus, tyyppi) {
+  const nykyinen = currentUserData.saastoSaldo || 0;
+  const uusi = tyyppi === 'lisays' ? nykyinen + summa : nykyinen - summa;
+  if (uusi < 0) throw new Error('Saldo ei voi mennä miinukselle.');
+
+  await db.collection('users').doc(currentUser.uid).update({ saastoSaldo: uusi });
+  currentUserData.saastoSaldo = uusi;
+
+  await db.collection('users').doc(currentUser.uid)
+    .collection('saastotapahtumat').add({
+      summa,
+      kuvaus: kuvaus || '',
+      tyyppi,
+      paivamaara: firebase.firestore.Timestamp.now(),
+      saldoJalkeen: uusi
+    });
+
+  return uusi;
+}
+
+async function getSaastoTapahtumat() {
+  const snap = await db.collection('users').doc(currentUser.uid)
+    .collection('saastotapahtumat').get();
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => b.paivamaara.seconds - a.paivamaara.seconds)
+    .slice(0, 10);
+}
